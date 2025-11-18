@@ -1,308 +1,451 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Line, Bar, Doughnut } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js'
 
-interface DashboardData {
-  tasks: {
-    totalTasks: number
-    completedTasks: number
-    inProgressTasks: number
-    overdueTask: number
-    completionRate: number
-  }
-  equipment: {
-    totalEquipment: number
-    activeEquipment: number
-    maintenanceDue: number
-  }
-  materials: {
-    lowStockItems: number
-  }
-}
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+)
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null)
+  const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/reports/dashboard', {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((result) => {
-        if (result.success) {
-          setData(result.data)
-        }
-      })
-      .catch((error) => console.error('Failed to load dashboard:', error))
-      .finally(() => setLoading(false))
+    fetchDashboardData()
   }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch('/api/reports/dashboard', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await response.json()
+      if (data.success) {
+        setStats(data.data)
+      }
+      setLoading(false)
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error)
+      setLoading(false)
+    }
+  }
 
   if (loading) {
     return (
-      <div style={styles.container}>
-        <div style={styles.loading}>Lade Dashboard...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Lade Dashboard...</p>
+        </div>
       </div>
     )
   }
 
-  if (!data) {
+  if (!stats) {
     return (
-      <div style={styles.container}>
-        <div style={styles.error}>Dashboard-Daten konnten nicht geladen werden</div>
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">Fehler beim Laden der Dashboard-Daten</p>
+        </div>
       </div>
     )
+  }
+
+  // Task Status Chart
+  const taskStatusData = {
+    labels: ['Offen', 'In Arbeit', 'Erledigt'],
+    datasets: [
+      {
+        data: [
+          stats.tasks?.pending || 0,
+          stats.tasks?.inProgress || 0,
+          stats.tasks?.completed || 0,
+        ],
+        backgroundColor: ['#EF4444', '#F59E0B', '#10B981'],
+        borderWidth: 0,
+      },
+    ],
+  }
+
+  // Task Trend Chart (Last 7 Days)
+  const taskTrendData = {
+    labels: stats.taskTrend?.map((d: any) => d.date) || [],
+    datasets: [
+      {
+        label: 'Erledigte Tasks',
+        data: stats.taskTrend?.map((d: any) => d.completed) || [],
+        borderColor: '#10B981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        tension: 0.4,
+      },
+      {
+        label: 'Neue Tasks',
+        data: stats.taskTrend?.map((d: any) => d.created) || [],
+        borderColor: '#3B82F6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        tension: 0.4,
+      },
+    ],
+  }
+
+  // Equipment Usage Chart
+  const equipmentUsageData = {
+    labels: stats.equipmentByType?.map((e: any) => e.type) || [],
+    datasets: [
+      {
+        label: 'Betriebsstunden',
+        data: stats.equipmentByType?.map((e: any) => e.hours) || [],
+        backgroundColor: '#8B5CF6',
+      },
+    ],
+  }
+
+  // Material Consumption Chart
+  const materialData = {
+    labels: stats.topMaterials?.map((m: any) => m.name) || [],
+    datasets: [
+      {
+        label: 'Verbrauch',
+        data: stats.topMaterials?.map((m: any) => m.quantity) || [],
+        backgroundColor: '#EC4899',
+      },
+    ],
   }
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>🏌️ Golf Greenkeeper Dashboard</h1>
+    <div className="p-4 md:p-6 space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+          Dashboard
+        </h1>
+        <p className="text-gray-600 mt-1">
+          Überblick über Golfplatz Siek
+        </p>
+      </div>
 
-      <div style={styles.grid}>
-        {/* Tasks Card */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>📋 Aufgaben</h2>
-          <div style={styles.stats}>
-            <div style={styles.stat}>
-              <div style={styles.statValue}>{data.tasks.totalTasks}</div>
-              <div style={styles.statLabel}>Gesamt</div>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Offene Tasks</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {stats.tasks?.pending || 0}
+              </p>
             </div>
-            <div style={styles.stat}>
-              <div style={{ ...styles.statValue, color: '#10b981' }}>
-                {data.tasks.completedTasks}
-              </div>
-              <div style={styles.statLabel}>Erledigt</div>
-            </div>
-            <div style={styles.stat}>
-              <div style={{ ...styles.statValue, color: '#3b82f6' }}>
-                {data.tasks.inProgressTasks}
-              </div>
-              <div style={styles.statLabel}>In Arbeit</div>
-            </div>
-            <div style={styles.stat}>
-              <div style={{ ...styles.statValue, color: '#ef4444' }}>
-                {data.tasks.overdueTask}
-              </div>
-              <div style={styles.statLabel}>Überfällig</div>
+            <div className="bg-red-100 rounded-full p-3">
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                />
+              </svg>
             </div>
           </div>
-          <div style={styles.progressBar}>
-            <div
-              style={{
-                ...styles.progressFill,
-                width: `${data.tasks.completionRate}%`,
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Equipment aktiv</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {stats.equipment?.active || 0}
+              </p>
+            </div>
+            <div className="bg-green-100 rounded-full p-3">
+              <svg
+                className="w-8 h-8 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Materialien niedrig</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {stats.materials?.lowStock || 0}
+              </p>
+            </div>
+            <div className="bg-yellow-100 rounded-full p-3">
+              <svg
+                className="w-8 h-8 text-yellow-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Temperatur</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {stats.weather?.temperature || '--'}°C
+              </p>
+            </div>
+            <div className="bg-blue-100 rounded-full p-3">
+              <svg
+                className="w-8 h-8 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts Row 1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Task-Status Verteilung
+          </h2>
+          <div className="h-64 flex items-center justify-center">
+            <Doughnut
+              data={taskStatusData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'bottom',
+                  },
+                },
               }}
             />
           </div>
-          <div style={styles.small}>
-            Abschlussrate: {Math.round(data.tasks.completionRate)}%
-          </div>
         </div>
 
-        {/* Equipment Card */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>🚜 Equipment</h2>
-          <div style={styles.stats}>
-            <div style={styles.stat}>
-              <div style={styles.statValue}>{data.equipment.totalEquipment}</div>
-              <div style={styles.statLabel}>Gesamt</div>
-            </div>
-            <div style={styles.stat}>
-              <div style={{ ...styles.statValue, color: '#10b981' }}>
-                {data.equipment.activeEquipment}
-              </div>
-              <div style={styles.statLabel}>Aktiv</div>
-            </div>
-            <div style={styles.stat}>
-              <div style={{ ...styles.statValue, color: '#f59e0b' }}>
-                {data.equipment.maintenanceDue}
-              </div>
-              <div style={styles.statLabel}>Wartung fällig</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Materials Card */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>🧪 Materialien</h2>
-          <div style={styles.stats}>
-            <div style={styles.stat}>
-              <div style={{ ...styles.statValue, color: '#ef4444' }}>
-                {data.materials.lowStockItems}
-              </div>
-              <div style={styles.statLabel}>Niedriger Bestand</div>
-            </div>
-          </div>
-          {data.materials.lowStockItems > 0 && (
-            <div style={styles.alert}>
-              ⚠️ {data.materials.lowStockItems} Material(ien) benötigen Nachschub
-            </div>
-          )}
-        </div>
-
-        {/* Quick Actions Card */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>⚡ Schnellzugriff</h2>
-          <div style={styles.actions}>
-            <a href="/dashboard/tasks" style={styles.button}>
-              Aufgaben anzeigen
-            </a>
-            <a href="/dashboard/equipment" style={styles.button}>
-              Equipment verwalten
-            </a>
-            <a href="/dashboard/materials" style={styles.button}>
-              Materialien prüfen
-            </a>
-            <a href="/api/reports/dashboard" style={styles.buttonSecondary}>
-              Vollständiger Report (API)
-            </a>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Task-Verlauf (7 Tage)
+          </h2>
+          <div className="h-64">
+            <Line
+              data={taskTrendData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'bottom',
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                  },
+                },
+              }}
+            />
           </div>
         </div>
       </div>
 
-      <div style={styles.footer}>
-        <p>
-          <strong>API Endpunkte:</strong>
-        </p>
-        <ul style={styles.apiList}>
-          <li>GET /api/reports/dashboard - Dashboard Summary</li>
-          <li>GET /api/tasks - Aufgabenliste</li>
-          <li>GET /api/equipment - Equipment-Liste</li>
-          <li>GET /api/materials/low-stock - Niedriger Bestand</li>
-          <li>GET /api/sensors/alerts - Sensor-Alarme</li>
-          <li>WS /ws?token=YOUR_TOKEN - Real-time Updates</li>
-        </ul>
+      {/* Charts Row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Equipment-Nutzung nach Typ
+          </h2>
+          <div className="h-64">
+            <Bar
+              data={equipmentUsageData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: {
+                      display: true,
+                      text: 'Betriebsstunden',
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Top Material-Verbrauch
+          </h2>
+          <div className="h-64">
+            <Bar
+              data={materialData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                },
+                scales: {
+                  x: {
+                    beginAtZero: true,
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Schnellaktionen
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <button
+            onClick={() => (window.location.href = '/dashboard/tasks/new')}
+            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+          >
+            <svg
+              className="w-8 h-8 text-green-600 mb-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            <span className="text-sm font-medium">Neuer Task</span>
+          </button>
+
+          <button
+            onClick={() => (window.location.href = '/dashboard/equipment')}
+            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+          >
+            <svg
+              className="w-8 h-8 text-blue-600 mb-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+              />
+            </svg>
+            <span className="text-sm font-medium">Equipment</span>
+          </button>
+
+          <button
+            onClick={() => (window.location.href = '/dashboard/materials')}
+            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+          >
+            <svg
+              className="w-8 h-8 text-purple-600 mb-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+              />
+            </svg>
+            <span className="text-sm font-medium">Materialien</span>
+          </button>
+
+          <button
+            onClick={() => (window.location.href = '/dashboard/reports')}
+            className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+          >
+            <svg
+              className="w-8 h-8 text-orange-600 mb-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
+            <span className="text-sm font-medium">Berichte</span>
+          </button>
+        </div>
       </div>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    maxWidth: '1400px',
-    margin: '0 auto',
-    padding: '2rem',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-  },
-  title: {
-    fontSize: '2.5rem',
-    fontWeight: 'bold',
-    marginBottom: '2rem',
-    color: '#1f2937',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '1.5rem',
-    marginBottom: '2rem',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    border: '1px solid #e5e7eb',
-  },
-  cardTitle: {
-    fontSize: '1.25rem',
-    fontWeight: '600',
-    marginBottom: '1rem',
-    color: '#374151',
-  },
-  stats: {
-    display: 'flex',
-    justifyContent: 'space-around',
-    marginBottom: '1rem',
-  },
-  stat: {
-    textAlign: 'center' as const,
-  },
-  statValue: {
-    fontSize: '2rem',
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  statLabel: {
-    fontSize: '0.875rem',
-    color: '#6b7280',
-    marginTop: '0.25rem',
-  },
-  progressBar: {
-    width: '100%',
-    height: '8px',
-    backgroundColor: '#e5e7eb',
-    borderRadius: '4px',
-    overflow: 'hidden',
-    marginBottom: '0.5rem',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#10b981',
-    transition: 'width 0.3s ease',
-  },
-  small: {
-    fontSize: '0.875rem',
-    color: '#6b7280',
-    textAlign: 'center' as const,
-  },
-  alert: {
-    padding: '0.75rem',
-    backgroundColor: '#fef3c7',
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    color: '#92400e',
-    marginTop: '1rem',
-  },
-  actions: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '0.75rem',
-  },
-  button: {
-    padding: '0.75rem 1rem',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    borderRadius: '6px',
-    textAlign: 'center' as const,
-    textDecoration: 'none',
-    fontWeight: '500',
-    transition: 'background-color 0.2s',
-  },
-  buttonSecondary: {
-    padding: '0.75rem 1rem',
-    backgroundColor: '#6b7280',
-    color: '#fff',
-    borderRadius: '6px',
-    textAlign: 'center' as const,
-    textDecoration: 'none',
-    fontWeight: '500',
-  },
-  footer: {
-    marginTop: '3rem',
-    padding: '1.5rem',
-    backgroundColor: '#f9fafb',
-    borderRadius: '12px',
-  },
-  apiList: {
-    listStyle: 'none',
-    padding: 0,
-    margin: '0.5rem 0 0 0',
-    fontSize: '0.875rem',
-    color: '#6b7280',
-    fontFamily: 'monospace',
-  },
-  loading: {
-    textAlign: 'center' as const,
-    padding: '3rem',
-    fontSize: '1.125rem',
-    color: '#6b7280',
-  },
-  error: {
-    textAlign: 'center' as const,
-    padding: '3rem',
-    fontSize: '1.125rem',
-    color: '#ef4444',
-  },
 }
