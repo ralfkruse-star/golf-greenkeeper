@@ -1,31 +1,67 @@
 /**
- * Current Weather API Route
+ * Weather Station API - Current Weather
  * GET /api/weather/current
  */
 
-import { NextRequest } from 'next/server'
-import { WeatherService } from '@/modules/weather/services/weather-service'
-import { prisma } from '@/lib/db'
-import { successResponse, errorResponse, getQueryParams } from '@/lib/api-helpers'
-
-const weatherService = new WeatherService(prisma)
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { weatherStationService } from '@/services/weather-station.service'
 
 /**
- * GET /api/weather/current
- * Get current weather and create snapshot
+ * Get current weather conditions
  */
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const params = getQueryParams(request)
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    // Default coordinates (can be from club settings)
-    const lat = params.lat ? parseFloat(params.lat) : 53.6355 // Golfclub Siek
-    const lon = params.lon ? parseFloat(params.lon) : 10.2877
+    const { searchParams } = new URL(req.url)
+    const latitude = parseFloat(searchParams.get('latitude') || '0')
+    const longitude = parseFloat(searchParams.get('longitude') || '0')
+    const provider = (searchParams.get('provider') || 'OPENWEATHER') as
+      | 'OPENWEATHER'
+      | 'WEATHERSTACK'
+      | 'ONSITE'
+    const apiKey = searchParams.get('apiKey') || process.env.OPENWEATHER_API_KEY || ''
 
-    const snapshot = await weatherService.createSnapshot(lat, lon)
+    if (!latitude || !longitude) {
+      return NextResponse.json(
+        { error: 'Missing required query parameters: latitude, longitude' },
+        { status: 400 }
+      )
+    }
 
-    return successResponse(snapshot)
+    const weather = await weatherStationService.getCurrentWeather(latitude, longitude, {
+      provider,
+      apiKey,
+    })
+
+    // Get forecast for irrigation adjustment
+    const forecast = await weatherStationService.getForecast(latitude, longitude, 3, apiKey)
+
+    // Calculate irrigation adjustment
+    const irrigationAdjustment = weatherStationService.calculateIrrigationAdjustment(
+      weather,
+      forecast
+    )
+
+    // Check for weather alerts
+    const alerts = await weatherStationService.checkWeatherAlerts(weather, forecast)
+
+    // Store reading
+    await weatherStationService.storeReading(weather, session.user.tenantId)
+
+    return NextResponse.json({
+      weather,
+      forecast,
+      irrigationAdjustment,
+      alerts,
+    })
   } catch (error) {
-    return errorResponse(error)
+    console.error('Error fetching weather:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
