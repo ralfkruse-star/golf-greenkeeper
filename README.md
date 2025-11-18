@@ -4,12 +4,21 @@ Ein umfassendes Management-System für Golfplatz-Wartung und -Pflege.
 
 ## Features
 
-- 🎯 **Task Management**: Digitale Tages- und Wochenaufgaben für Greenkeeper
-- 🚜 **Equipment Tracking**: Maschinen-Nutzung und Wartung
-- 🗺️ **Location Mapping**: Zonen (Greens, Fairways, Bunker, Tees)
-- 📱 **QR-Code Integration**: Workflows für Tasks und Equipment
-- 🌡️ **IoT & Sensoren**: Bodenfeuchte, Wetter-Integration
-- 📊 **Reports & KPIs**: Arbeitszeiten, Kosten, Material-Verbrauch
+### Core Modules
+- 🎯 **Task Management**: Digitale Tages- und Wochenaufgaben mit State Machine (TODO → IN_PROGRESS → COMPLETED)
+- 🚜 **Equipment Tracking**: Maschinen-Nutzung, Wartung und Betriebsstunden-Tracking
+- 🗺️ **Location Mapping**: Zonen (Greens, Fairways, Bunker, Tees, Roughs)
+- 📱 **QR-Code Integration**: Schnelle Workflows für Tasks, Equipment und Locations
+- 🧪 **Material Management**: Lagerbestand, Verbrauch und Anwendungs-Tracking
+- 🌡️ **Weather Integration**: Wetterdaten mit Evapotranspiration und Bewässerungs-Empfehlungen
+- 📡 **IoT & Sensoren**: Bodenfeuchte-, Temperatur- und Niederschlagssensoren mit Alerts
+- 📊 **Reports & Analytics**: Umfassende KPIs für Tasks, Equipment, Materialien und Workforce
+- ⚡ **Real-time Updates**: WebSocket-Server für Live-Benachrichtigungen
+
+### Frontend
+- 💻 **Dashboard UI**: Übersichtliches Dashboard mit KPI-Karten
+- 📋 **Task Management UI**: Mobile-optimierte Aufgabenverwaltung
+- 📱 **Responsive Design**: Funktioniert auf Desktop, Tablet und Smartphone
 
 ## Tech Stack
 
