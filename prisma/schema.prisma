@@ -11,6 +11,43 @@ datasource db {
 }
 
 // ============================================================================
+// MULTI-TENANT
+// ============================================================================
+
+enum SubscriptionTier {
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  subdomain String   @unique
+
+  // Subscription
+  tier      SubscriptionTier @default(BASIC)
+  active    Boolean          @default(true)
+
+  // Branding
+  logoUrl   String?
+  primaryColor String?
+  secondaryColor String?
+
+  // Settings
+  settings  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users     User[]
+  locations Location[]
+
+  @@map("tenants")
+}
+
+// ============================================================================
 // AUTH & USERS
 // ============================================================================
 
@@ -30,6 +67,10 @@ model User {
   role      UserRole @default(GREENKEEPER)
   active    Boolean  @default(true)
 
+  // Multi-tenant
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -41,6 +82,7 @@ model User {
   materialApplications MaterialApplication[]
   createdMaintenanceEvents MaintenanceEvent[] @relation("MaintenanceCreator")
 
+  @@index([tenantId])
   @@map("users")
 }
 
@@ -67,6 +109,10 @@ model Location {
   type        LocationType
   description String?
 
+  // Multi-tenant
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   // Hierarchy
   parentId    String?
   parent      Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
@@ -88,6 +134,7 @@ model Location {
   tasks               Task[]
   materialApplications MaterialApplication[]
 
+  @@index([tenantId])
   @@map("locations")
 }
 
