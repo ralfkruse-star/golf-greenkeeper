@@ -1,0 +1,435 @@
+// Prisma Schema for Golf Greenkeeper System
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// AUTH & USERS
+// ============================================================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // Argon2 hashed
+  firstName String
+  lastName  String
+  role      UserRole @default(GREENKEEPER)
+  active    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  assignedTasks      Task[]                @relation("AssignedTasks")
+  createdTasks       Task[]                @relation("CreatedTasks")
+  taskLogs           TaskLog[]
+  equipmentUsageLogs EquipmentUsageLog[]
+  materialApplications MaterialApplication[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  HEAD_GREENKEEPER
+  GREENKEEPER
+}
+
+// ============================================================================
+// LOCATIONS
+// ============================================================================
+
+model Course {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  totalHoles  Int      @default(18)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  holes Hole[]
+
+  @@map("courses")
+}
+
+model Hole {
+  id          String  @id @default(uuid())
+  courseId    String
+  holeNumber  Int
+  par         Int
+  length      Int     // in meters
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  zones  Zone[]
+
+  @@unique([courseId, holeNumber])
+  @@map("holes")
+}
+
+model Zone {
+  id           String    @id @default(uuid())
+  holeId       String?
+  name         String
+  type         ZoneType
+  code         String    @unique // for QR codes, e.g., "GREEN-01"
+  area         Float?    // square meters
+  coordinates  Json?     // GeoJSON or simple lat/lng array
+  description  String?
+  metadata     Json?     // extensible field for additional data
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hole                 Hole?                 @relation(fields: [holeId], references: [id], onDelete: SetNull)
+  tasks                Task[]
+  sensorDevices        SensorDevice[]
+  materialApplications MaterialApplication[]
+
+  @@map("zones")
+}
+
+enum ZoneType {
+  GREEN
+  FAIRWAY
+  TEE
+  BUNKER
+  ROUGH
+  SEMI_ROUGH
+  WATER_HAZARD
+  OUT_OF_BOUNDS
+  PRACTICE_AREA
+  OTHER
+}
+
+// ============================================================================
+// TASKS
+// ============================================================================
+
+model Task {
+  id          String       @id @default(uuid())
+  code        String       @unique // e.g., "TASK-001"
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+
+  zoneId          String?
+  assignedToId    String?
+  createdById     String
+  equipmentId     String? // optional: specific equipment needed
+
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+  actualStart     DateTime?
+  actualEnd       DateTime?
+
+  estimatedHours  Float?
+  actualHours     Float? // calculated from actualStart/actualEnd
+
+  checklistItems  Json? // array of checklist items
+  photoUrls       Json? // array of photo URLs
+  metadata        Json? // extensible
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  zone         Zone?      @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  assignedTo   User?      @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy    User       @relation("CreatedTasks", fields: [createdById], references: [id])
+  equipment    Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+
+  logs TaskLog[]
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([zoneId])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model TaskLog {
+  id           String     @id @default(uuid())
+  taskId       String
+  userId       String
+  fromStatus   TaskStatus?
+  toStatus     TaskStatus
+  notes        String?
+  timestamp    DateTime   @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+  @@map("task_logs")
+}
+
+// ============================================================================
+// EQUIPMENT
+// ============================================================================
+
+model Equipment {
+  id               String          @id @default(uuid())
+  code             String          @unique // for QR, e.g., "EQ-001"
+  name             String
+  type             EquipmentType
+  manufacturer     String?
+  model            String?
+  serialNumber     String?
+  status           EquipmentStatus @default(AVAILABLE)
+
+  purchaseDate     DateTime?
+  purchasePrice    Float?
+
+  operatingHours   Float           @default(0) // total hours
+  lastServiceHours Float?          // hours at last maintenance
+  serviceInterval  Float?          // hours between services
+
+  metadata         Json? // extensible
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks             Task[]
+  usageLogs         EquipmentUsageLog[]
+  maintenanceEvents MaintenanceEvent[]
+
+  @@map("equipment")
+}
+
+enum EquipmentType {
+  MOWER
+  TRACTOR
+  VEHICLE
+  SPRAYER
+  AERATOR
+  SEEDER
+  TOOL
+  OTHER
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+model EquipmentUsageLog {
+  id          String    @id @default(uuid())
+  equipmentId String
+  userId      String
+  zoneId      String?
+
+  startTime   DateTime
+  endTime     DateTime?
+
+  startHours  Float     // operating hours at start
+  endHours    Float?    // operating hours at end
+
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([equipmentId])
+  @@index([userId])
+  @@map("equipment_usage_logs")
+}
+
+model MaintenanceEvent {
+  id          String   @id @default(uuid())
+  equipmentId String
+
+  type        String   // "ROUTINE", "REPAIR", "INSPECTION"
+  description String
+  performedAt DateTime
+  performedBy String?  // name or user reference
+
+  hoursAtMaintenance Float?
+  cost        Float?
+
+  notes       String?
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+  @@map("maintenance_events")
+}
+
+// ============================================================================
+// MATERIALS
+// ============================================================================
+
+model Material {
+  id           String       @id @default(uuid())
+  code         String       @unique
+  name         String
+  type         MaterialType
+  manufacturer String?
+  unit         String       // "kg", "liter", "bag", etc.
+
+  currentStock Float        @default(0)
+  minStock     Float?       // alert threshold
+  unitCost     Float?
+
+  safetyInfo   String?      // e.g., PPE requirements
+  metadata     Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications MaterialApplication[]
+
+  @@map("materials")
+}
+
+enum MaterialType {
+  FERTILIZER
+  PESTICIDE
+  HERBICIDE
+  FUNGICIDE
+  SEED
+  SAND
+  SOIL
+  OTHER
+}
+
+model MaterialApplication {
+  id         String   @id @default(uuid())
+  materialId String
+  zoneId     String
+  userId     String
+
+  quantity   Float
+  unit       String
+  appliedAt  DateTime @default(now())
+
+  notes      String?
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  zone     Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([materialId])
+  @@index([zoneId])
+  @@map("material_applications")
+}
+
+// ============================================================================
+// WEATHER
+// ============================================================================
+
+model WeatherSnapshot {
+  id           String   @id @default(uuid())
+  timestamp    DateTime @default(now())
+
+  temperature  Float?   // °C
+  humidity     Float?   // %
+  precipitation Float?  // mm
+  windSpeed    Float?   // km/h
+  windDirection String?
+
+  evapotranspiration Float? // ET in mm
+
+  source       String?  // "API", "MANUAL", "STATION"
+  metadata     Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([timestamp])
+  @@map("weather_snapshots")
+}
+
+// ============================================================================
+// SENSORS (IoT)
+// ============================================================================
+
+model SensorDevice {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  type         String   // "SOIL_MOISTURE", "TEMPERATURE", "RAIN_GAUGE"
+  zoneId       String?
+
+  active       Boolean  @default(true)
+  installDate  DateTime @default(now())
+
+  metadata     Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  zone     Zone?           @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  readings SensorReading[]
+
+  @@map("sensor_devices")
+}
+
+model SensorReading {
+  id        String   @id @default(uuid())
+  deviceId  String
+  timestamp DateTime @default(now())
+
+  value     Float
+  unit      String
+
+  metadata  Json?
+
+  device SensorDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, timestamp])
+  @@map("sensor_readings")
+}
+
+// ============================================================================
+// REPORTS (optional, for future use)
+// ============================================================================
+
+model ReportDefinition {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        String   // "TASK_SUMMARY", "EQUIPMENT_USAGE", "MATERIAL_CONSUMPTION"
+  config      Json     // report parameters
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("report_definitions")
+}
