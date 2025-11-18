@@ -1,127 +1,229 @@
-# Golf Greenkeeper - Digitales Platzpflege-Management
+# Golf Greenkeeper Management System
 
-Ein umfassendes Management-System für Golfplatz-Wartung und -Pflege.
+**Digitales Platzpflege- & Maintenance-Management-System** für Golfplätze mit Fokus auf Tasks, Equipment, IoT, Zonen und Sensorik.
 
-## Features
+![Next.js](https://img.shields.io/badge/Next.js-14.2-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)
+![Tests](https://img.shields.io/badge/Tests-70%20passing-green)
+![License](https://img.shields.io/badge/license-ISC-blue)
 
-### Core Modules
-- 🎯 **Task Management**: Digitale Tages- und Wochenaufgaben mit State Machine (TODO → IN_PROGRESS → COMPLETED)
-- 🚜 **Equipment Tracking**: Maschinen-Nutzung, Wartung und Betriebsstunden-Tracking
-- 🗺️ **Location Mapping**: Zonen (Greens, Fairways, Bunker, Tees, Roughs)
-- 📱 **QR-Code Integration**: Schnelle Workflows für Tasks, Equipment und Locations
-- 🧪 **Material Management**: Lagerbestand, Verbrauch und Anwendungs-Tracking
-- 🌡️ **Weather Integration**: Wetterdaten mit Evapotranspiration und Bewässerungs-Empfehlungen
-- 📡 **IoT & Sensoren**: Bodenfeuchte-, Temperatur- und Niederschlagssensoren mit Alerts
-- 📊 **Reports & Analytics**: Umfassende KPIs für Tasks, Equipment, Materialien und Workforce
-- ⚡ **Real-time Updates**: WebSocket-Server für Live-Benachrichtigungen
+---
 
-### Frontend
-- 💻 **Dashboard UI**: Übersichtliches Dashboard mit KPI-Karten
-- 📋 **Task Management UI**: Mobile-optimierte Aufgabenverwaltung
-- 📱 **Responsive Design**: Funktioniert auf Desktop, Tablet und Smartphone
+## 🎯 Features
 
-## Tech Stack
+### ✅ Core Features
+- **Task Management** mit Status-Machine (TODO → IN_PROGRESS → COMPLETED)
+- **Equipment Tracking** mit Wartungsintervallen und Betriebsstunden
+- **Material Inventory** mit Bestandsverwaltung und Low-Stock Alerts
+- **Location & Zone Management** für 18-Loch Golfplatz
+- **Sensor Integration** (MQTT) für Bodenfeuchtigkeit, Temperatur, pH-Wert
+- **Weather Integration** (OpenWeather API) mit Evapotranspiration-Berechnung
+- **Reports & Analytics** mit PDF/Excel Export
 
-- **Framework**: Next.js 14 (App Router), TypeScript
-- **Database**: PostgreSQL mit Prisma ORM
-- **Cache**: Redis
-- **Auth**: JWT (Access + Refresh), Argon2
-- **Testing**: Vitest + Testing Library
-- **CI/CD**: GitHub Actions
+### 🔐 Security & Auth
+- **JWT Authentication** (Access + Refresh Tokens)
+- **Argon2 Password Hashing**
+- **Role-Based Access Control** (ADMIN, MANAGER, GREENKEEPER, VIEWER)
 
-## Erste Schritte
+### 📊 Frontend Features
+- **Advanced Dashboard** mit Chart.js (Line, Bar, Doughnut)
+- **Equipment Management UI** mit Filtern und CRUD
+- **Material Management UI** mit Stock-Visualisierung
+- **Reports UI** mit PDF/Excel Export
+- **Interactive Maps** (Leaflet) mit Zone-Visualisierung
+- **QR Scanner** (HTML5 QR Code) für Equipment & Materialien
+- **Notification Center** mit Prioritätsstufen
+- **PWA Support** (Progressive Web App) mit Service Worker
+
+### 📱 Mobile App (React Native)
+- Native iOS & Android via Expo
+- Task Management
+- Equipment & Material Tracking
+- QR Code Scanner
+- Real-time Updates
+
+### 🔌 Real-time Features
+- **WebSocket Server** für Live-Updates
+- **MQTT Broker** Integration für IoT-Sensoren
+- **Push Notifications** (in Vorbereitung)
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
-
-- Node.js 18+
-- PostgreSQL 14+
-- Redis 7+
+- Node.js >= 18
+- PostgreSQL >= 14
+- Redis >= 6
+- MQTT Broker (optional, z.B. Mosquitto)
 
 ### Installation
 
 ```bash
-# Dependencies installieren
+# Clone repository
+git clone https://github.com/your-username/golf-greenkeeper.git
+cd golf-greenkeeper
+
+# Install dependencies
 npm install
 
-# Environment-Variablen kopieren und anpassen
+# Setup environment variables
 cp .env.example .env
+# Edit .env with your configuration
 
-# Datenbank-Schema initialisieren
-npm run db:push
+# Run database migrations
+npx prisma migrate dev --name init
+npx prisma generate
 
-# Seed-Daten laden (optional)
-npm run db:seed
-
-# Development-Server starten
+# Start development server
 npm run dev
 ```
 
-Öffne [http://localhost:3000](http://localhost:3000).
+Server läuft auf: http://localhost:3000
 
-### Datenbank-Befehle
+### Environment Variables
 
-```bash
-# Prisma Schema generieren
-npm run db:generate
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/golf_greenkeeper"
 
-# Migration erstellen
-npm run db:migrate
+# Redis
+REDIS_URL="redis://localhost:6379"
 
-# Prisma Studio öffnen
-npm run db:studio
+# JWT Secrets
+JWT_ACCESS_SECRET="your-access-secret-key"
+JWT_REFRESH_SECRET="your-refresh-secret-key"
+
+# OpenWeather API
+OPENWEATHER_API_KEY="your-openweather-api-key"
+
+# MQTT Broker
+MQTT_BROKER_URL="mqtt://localhost:1883"
+MQTT_USERNAME="mqtt_user"
+MQTT_PASSWORD="mqtt_password"
 ```
 
-### Testing
+---
 
+## 🧪 Testing
+
+### Run Tests
 ```bash
-# Tests ausführen
+# All tests
 npm test
 
-# Tests mit UI
+# Backend unit tests only
+npm run test:unit
+
+# Frontend component tests
 npm run test:ui
 
-# Coverage Report
+# With coverage
 npm run test:coverage
 ```
 
-## Architektur
-
-Siehe [ARCHITECTURE.md](./ARCHITECTURE.md) für detaillierte Architektur-Dokumentation.
-
-### Verzeichnisstruktur
-
+### Test Structure
 ```
-src/
-├── app/              # Next.js App Router (Pages + API Routes)
-├── modules/          # Domain-Module (DDD)
-├── lib/              # Shared utilities
-└── types/            # Shared TypeScript types
+tests/
+├── unit/
+│   ├── tasks/       # 31 tests
+│   ├── materials/   # 11 tests
+│   └── weather/     # 4 tests
+└── ui/
+    ├── dashboard.test.tsx    # 6 tests
+    ├── equipment.test.tsx    # 7 tests
+    └── materials.test.tsx    # 11 tests
 ```
 
-## Rollen & Permissions
+**Current Test Coverage**: 70 tests passing
 
-- **ADMIN**: Vollzugriff
-- **MANAGER**: Reports, Planung, Kosten-Übersicht
-- **HEAD_GREENKEEPER**: Tasks erstellen/zuweisen, Equipment-Verwaltung
-- **GREENKEEPER**: Tasks ausführen, Equipment nutzen
+---
 
-## Development
+## 📖 Documentation
 
-Dieses Projekt folgt **Test-Driven Development (TDD)**:
-1. Test schreiben (failing)
-2. Implementierung (passing)
-3. Refactoring
+- [API Documentation](./docs/API.md) - Detailed API reference
+- [Developer Guide](./docs/DEVELOPER.md) - Development guidelines
+- [Architecture](./ARCHITECTURE.md) - System architecture
+- [Mobile App](./mobile/README.md) - React Native app
 
-Commit-Messages folgen [Conventional Commits](https://www.conventionalcommits.org/).
+---
 
-## CI/CD
+## 📱 Mobile App
 
-GitHub Actions führt automatisch aus:
-- Linting
-- Type-Checking
-- Unit & Integration Tests
-- Build-Validierung
+See [mobile/README.md](./mobile/README.md) for React Native app documentation.
 
-## Lizenz
+Quick start:
+```bash
+cd mobile
+npm install
+npm start
+```
 
-Proprietär - Golfplatz Siek
+---
+
+## 🏗️ Architecture
+
+### Tech Stack
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript 5.3
+- **Database**: PostgreSQL mit Prisma ORM
+- **Cache**: Redis
+- **Testing**: Vitest + React Testing Library
+- **Auth**: JWT (Access + Refresh)
+- **Real-time**: WebSockets + MQTT
+- **CI/CD**: GitHub Actions
+
+### Domain-Driven Design
+```
+src/modules/
+├── tasks/          # Task Domain
+├── equipment/      # Equipment Domain
+├── materials/      # Material Domain
+├── locations/      # Location & Zone Domain
+├── weather/        # Weather Domain
+├── reports/        # Reports & Analytics
+└── sensors/        # Sensor Domain (IoT)
+```
+
+---
+
+## 🛠️ Development
+
+### Key Scripts
+```bash
+npm run dev          # Start dev server
+npm run build        # Production build
+npm run start        # Start production server
+npm test             # Run all tests
+npm run lint         # Lint code
+npm run db:push      # Push Prisma schema to DB
+npm run db:studio    # Open Prisma Studio
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+---
+
+## 📝 License
+
+ISC License
+
+---
+
+## 👥 Authors
+
+**Golf Greenkeeper Team**
+- Golfplatz Siek, Germany
+- Built with ❤️ using Next.js, TypeScript, and modern web technologies
+
+---
+
+**🏌️ Made for Golfplatz Siek - Digitalisierung der Platzpflege**
